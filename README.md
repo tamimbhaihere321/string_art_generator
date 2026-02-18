@@ -25,4 +25,3 @@ streamlit run app.py
 4. Select repo + branch
 5. Choose app.py
 6. Deploy
-7. 
