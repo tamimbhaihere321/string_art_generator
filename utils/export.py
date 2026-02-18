@@ -45,4 +45,3 @@ def generate_drill_template(w,h,pins):
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
-  
