@@ -1,6 +1,8 @@
 import streamlit as st
 import numpy as np
 from PIL import Image, ImageOps
+from io import BytesIO
+
 from utils.layout import generate_pin_layout
 from utils.algorithm import generate_string_art
 from utils.export import (
@@ -12,6 +14,17 @@ from utils.export import (
 
 st.set_page_config(layout="wide")
 st.title("Professional String Art Generator")
+
+
+# ---------- HELPER: NUMPY IMAGE → PNG BYTES ----------
+
+def image_to_png_bytes(img_array):
+    img = Image.fromarray(img_array.astype("uint8"))
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf.getvalue()
+
 
 # ---------- SIDEBAR ----------
 
@@ -35,10 +48,12 @@ thickness = st.sidebar.slider("Preview thickness", 1, 5, 1)
 
 run = st.sidebar.button("Generate")
 
+
 # ---------- MAIN ----------
 
 if uploaded and run:
 
+    # --- LOAD & PREPROCESS IMAGE ---
     gray = Image.open(uploaded).convert("L")
     gray = ImageOps.fit(gray, (800,800))
     gray = np.array(gray)
@@ -50,12 +65,13 @@ if uploaded and run:
 
     st.write("### Processing… please wait")
 
+    # --- GENERATE PIN LAYOUT ---
     pins = generate_pin_layout(
         board_w, board_h, margin,
         pin_count, layout_type
     )
 
-    # ---- LIVE UI ----
+    # --- LIVE UI ELEMENTS ---
     progress_bar = st.progress(0)
     status_text = st.empty()
     live_preview = st.empty()
@@ -65,8 +81,13 @@ if uploaded and run:
         if step:
             status_text.text(f"Generating threads… step {step}")
         if preview_img is not None:
-            live_preview.image(preview_img, caption="Live Thread Mapping", use_container_width=True)
+            live_preview.image(
+                preview_img,
+                caption="Live Thread Mapping",
+                use_container_width=True
+            )
 
+    # --- GENERATE STRING ART ---
     preview, threads = generate_string_art(
         gray,
         pins,
@@ -78,7 +99,8 @@ if uploaded and run:
 
     st.success("Finished")
 
-    col1,col2 = st.columns(2)
+    # --- SHOW RESULTS ---
+    col1, col2 = st.columns(2)
 
     with col1:
         st.image(preview, caption="Final String Art", use_container_width=True)
@@ -87,14 +109,45 @@ if uploaded and run:
         template = generate_drill_template(board_w, board_h, pins)
         st.image(template, caption="Pin Layout Template", use_container_width=True)
 
-    # EXPORTS
-
+    # --- EXPORT FILES ---
     pins_csv = export_pins_csv(pins)
     threads_csv = export_threads_csv(threads)
     txt = export_instructions_txt(threads)
 
-    st.download_button("Download preview.png", preview, "preview.png")
-    st.download_button("Download drill_template.png", template, "drill_template.png")
-    st.download_button("Download pins.csv", pins_csv, "pins.csv")
-    st.download_button("Download threads.csv", threads_csv, "threads.csv")
-    st.download_button("Download thread_instructions.txt", txt, "thread_instructions.txt")
+    preview_bytes = image_to_png_bytes(preview)
+
+    # --- DOWNLOAD BUTTONS ---
+    st.download_button(
+        "Download preview.png",
+        data=preview_bytes,
+        file_name="preview.png",
+        mime="image/png"
+    )
+
+    st.download_button(
+        "Download drill_template.png",
+        data=template,
+        file_name="drill_template.png",
+        mime="image/png"
+    )
+
+    st.download_button(
+        "Download pins.csv",
+        data=pins_csv,
+        file_name="pins.csv",
+        mime="text/csv"
+    )
+
+    st.download_button(
+        "Download threads.csv",
+        data=threads_csv,
+        file_name="threads.csv",
+        mime="text/csv"
+    )
+
+    st.download_button(
+        "Download thread_instructions.txt",
+        data=txt,
+        file_name="thread_instructions.txt",
+        mime="text/plain"
+    )
