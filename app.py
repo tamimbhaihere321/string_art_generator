@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
-import cv2
-from PIL import Image
+from PIL import Image, ImageOps
 from utils.layout import generate_pin_layout
 from utils.algorithm import generate_string_art
 from utils.export import (
@@ -14,7 +13,7 @@ from utils.export import (
 st.set_page_config(layout="wide")
 st.title("Professional String Art Generator")
 
-# ---------------- SIDEBAR ---------------- #
+# ---------- SIDEBAR ----------
 
 st.sidebar.header("IMAGE")
 uploaded = st.sidebar.file_uploader("Upload portrait", type=["png","jpg","jpeg"])
@@ -36,18 +35,16 @@ thickness = st.sidebar.slider("Preview thickness", 1, 5, 1)
 
 run = st.sidebar.button("Generate")
 
-# ---------------- MAIN ---------------- #
+# ---------- MAIN ----------
 
 if uploaded and run:
 
-    img = Image.open(uploaded).convert("RGB")
-    img_np = np.array(img)
-
-    gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-    gray = cv2.resize(gray, (800,800))
+    gray = Image.open(uploaded).convert("L")
+    gray = ImageOps.fit(gray, (800,800))
+    gray = np.array(gray)
 
     if invert:
-        gray = 255-gray
+        gray = 255 - gray
 
     gray = gray.astype(np.float32)/255.0
 
@@ -65,7 +62,7 @@ if uploaded and run:
 
     def update_ui(progress, preview_img=None, step=None):
         progress_bar.progress(progress)
-        if step is not None:
+        if step:
             status_text.text(f"Generating threads… step {step}")
         if preview_img is not None:
             live_preview.image(preview_img, caption="Live Thread Mapping", use_container_width=True)
@@ -90,7 +87,7 @@ if uploaded and run:
         template = generate_drill_template(board_w, board_h, pins)
         st.image(template, caption="Pin Layout Template", use_container_width=True)
 
-    # EXPORT FILES
+    # EXPORTS
 
     pins_csv = export_pins_csv(pins)
     threads_csv = export_threads_csv(threads)
@@ -101,4 +98,3 @@ if uploaded and run:
     st.download_button("Download pins.csv", pins_csv, "pins.csv")
     st.download_button("Download threads.csv", threads_csv, "threads.csv")
     st.download_button("Download thread_instructions.txt", txt, "thread_instructions.txt")
-  
