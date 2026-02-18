@@ -1,10 +1,19 @@
 import numpy as np
-import cv2
 
 def line_pixels(p1,p2,size):
-    mask=np.zeros((size,size),np.uint8)
-    cv2.line(mask,p1,p2,255,1)
-    return np.where(mask>0)
+
+    x1,y1=p1
+    x2,y2=p2
+
+    length=max(abs(x2-x1),abs(y2-y1))
+    xs=np.linspace(x1,x2,length).astype(int)
+    ys=np.linspace(y1,y2,length).astype(int)
+
+    xs=np.clip(xs,0,size-1)
+    ys=np.clip(ys,0,size-1)
+
+    return ys,xs
+
 
 def generate_string_art(img,pins,max_lines,darkness,thickness,progress_callback=None):
 
@@ -18,13 +27,12 @@ def generate_string_art(img,pins,max_lines,darkness,thickness,progress_callback=
         int(p[2]/max_y*(size-1))
     ) for p in pins]
 
-    # ---- CACHE LINES ----
     cache={}
     for i in range(len(pin_pts)):
         for j in range(i+1,len(pin_pts)):
             cache[(i,j)]=line_pixels(pin_pts[i],pin_pts[j],size)
 
-    canvas=np.ones_like(img)
+    canvas=np.ones_like(img,dtype=np.float32)
     threads=[]
     current=0
 
@@ -58,16 +66,12 @@ def generate_string_art(img,pins,max_lines,darkness,thickness,progress_callback=
         threads.append((step,current,best))
         current=best
 
-        # ---- LIVE UPDATE ----
-        if progress_callback and (step % LIVE_INTERVAL==0 or step==max_lines-1):
-
+        if progress_callback and (step%LIVE_INTERVAL==0 or step==max_lines-1):
             preview=(canvas*255).astype(np.uint8)
-            preview=cv2.cvtColor(preview,cv2.COLOR_GRAY2RGB)
-
-            progress_callback((step+1)/max_lines, preview, step+1)
+            preview=np.stack([preview]*3,axis=-1)
+            progress_callback((step+1)/max_lines,preview,step+1)
 
     preview=(canvas*255).astype(np.uint8)
-    preview=cv2.cvtColor(preview,cv2.COLOR_GRAY2RGB)
+    preview=np.stack([preview]*3,axis=-1)
 
     return preview,threads
-  
